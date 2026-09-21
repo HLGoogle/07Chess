@@ -48,7 +48,6 @@
 </div>
 
 <script>
-  // 通用注册表配置
   var GAME_REGISTRY = [
     {
       id: "01Five",
@@ -78,7 +77,6 @@
 
     var actionText = item.active ? "启动对局" : "准备中";
 
-    // 采用普通字符串拼接，不依赖模板字面量，避免任何环境转义问题
     card.innerHTML = 
       '<div>' +
         '<div class="entry-title">' + item.name + '</div>' +
