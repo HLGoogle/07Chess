@@ -64,7 +64,7 @@
 
   // 网络寻址逻辑：自适应当前服务地址
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  const host = location.host.includes("workers.dev") ? location.host : "07chess-server.hl273573221.workers.dev";
+  const host = "07chess.hl273573221.workers.dev"; // <-- 替换为域名
   const ws = new WebSocket(`${proto}//${host}?room=${currentRoom}`);
 
   ws.onopen = () => {
