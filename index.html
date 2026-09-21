@@ -48,8 +48,8 @@
 </div>
 
 <script>
-  // 通用注册表：后续扩展新游戏直接加到这里
-  const GAME_REGISTRY = [
+  // 通用注册表配置
+  var GAME_REGISTRY = [
     {
       id: "01Five",
       name: "01 号组件 (五子对弈)",
@@ -66,22 +66,28 @@
     }
   ];
 
-  const grid = document.getElementById("game-grid");
-  GAME_REGISTRY.forEach(item => {
-    const card = document.createElement("a");
-    card.className = "entry-card" + (item.active ? "" : " disabled");
-    if (item.active) card.href = item.path;
+  var grid = document.getElementById("game-grid");
 
-    // 修复转义字符，正确解析变量
-    card.innerHTML = `
-      <div>
-        <div class="entry-title">${item.name}</div>
-        <div class="entry-desc">${item.desc}</div>
-      </div>
-      <div class="entry-action">${item.active ? "启动对局" : "准备中"}</div>
-    `;
+  for (var i = 0; i < GAME_REGISTRY.length; i++) {
+    var item = GAME_REGISTRY[i];
+    var card = document.createElement("a");
+    card.className = "entry-card" + (item.active ? "" : " disabled");
+    if (item.active) {
+      card.href = item.path;
+    }
+
+    var actionText = item.active ? "启动对局" : "准备中";
+
+    // 采用普通字符串拼接，不依赖模板字面量，避免任何环境转义问题
+    card.innerHTML = 
+      '<div>' +
+        '<div class="entry-title">' + item.name + '</div>' +
+        '<div class="entry-desc">' + item.desc + '</div>' +
+      '</div>' +
+      '<div class="entry-action">' + actionText + '</div>';
+
     grid.appendChild(card);
-  });
+  }
 </script>
 
 </body>
