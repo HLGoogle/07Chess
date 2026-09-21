@@ -39,10 +39,8 @@
   </header>
 
   <div class="content-layout">
-    <!-- 动态渲染游戏挂载容器 -->
     <div class="grid-area" id="game-grid"></div>
 
-    <!-- 挂载公共大厅聊天组件 -->
     <div class="chat-widget-area">
       <iframe class="chat-frame" src="./shared/chat.html?room=lobby"></iframe>
     </div>
@@ -50,13 +48,13 @@
 </div>
 
 <script>
-// 根目录 index.html 第 57 行附近的注册表修改：
+  // 通用注册表：后续扩展新游戏直接加到这里
   const GAME_REGISTRY = [
     {
       id: "01Five",
       name: "01 号组件 (五子对弈)",
       desc: "标准 15×15 网格决策对抗模块，集成席位仲裁与时钟控制器。",
-      path: "./01Five/gomoku.html", // <-- 改为 gomoku.html
+      path: "./01Five/gomoku.html",
       active: true
     },
     {
@@ -74,12 +72,13 @@
     card.className = "entry-card" + (item.active ? "" : " disabled");
     if (item.active) card.href = item.path;
 
+    // 修复转义字符，正确解析变量
     card.innerHTML = `
       <div>
-        <div class="entry-title">\${item.name}</div>
-        <div class="entry-desc">\${item.desc}</div>
+        <div class="entry-title">${item.name}</div>
+        <div class="entry-desc">${item.desc}</div>
       </div>
-      <div class="entry-action">\${item.active ? "启动对局" : "准备中"}</div>
+      <div class="entry-action">${item.active ? "启动对局" : "准备中"}</div>
     `;
     grid.appendChild(card);
   });
