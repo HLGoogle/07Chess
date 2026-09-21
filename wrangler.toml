@@ -1,0 +1,11 @@
+name = "07chess"
+main = "index.js"
+compatibility_date = "2024-02-25"
+
+[[durable_objects.bindings]]
+name = "CHESS_ROOM"
+class_name = "ChessRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChessRoom"]
