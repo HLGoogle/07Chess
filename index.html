@@ -50,13 +50,13 @@
 </div>
 
 <script>
-  // 通用游戏注册表：新增任何棋类只需在此配置相对路径
+// 根目录 index.html 第 57 行附近的注册表修改：
   const GAME_REGISTRY = [
     {
       id: "01Five",
       name: "01 号组件 (五子对弈)",
       desc: "标准 15×15 网格决策对抗模块，集成席位仲裁与时钟控制器。",
-      path: "./01Five/index.html",
+      path: "./01Five/gomoku.html", // <-- 改为 gomoku.html
       active: true
     },
     {
