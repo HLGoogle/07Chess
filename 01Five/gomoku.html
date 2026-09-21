@@ -92,8 +92,7 @@
 
   function connect() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const host = location.host.includes("workers.dev") ? location.host : "07chess-server.hl273573221.workers.dev";
-    // 五子棋连接 01Five 专用对局房间
+    const host = "07chess.hl273573221.workers.dev";
     ws = new WebSocket(`${proto}//${host}?room=01Five`);
 
     ws.onopen = () => {
