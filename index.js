@@ -1,15 +1,15 @@
-// ==================== 1. 房间状态机 (Durable Object) ====================
+// ==================== 1. 动态房间实例 (Durable Object) ====================
 export class ChessRoom {
   constructor() {
     this.sessions = new Map(); // session => { id, name, role: 0(观战)|1(黑)|2(白) }
     this.board = Array(15).fill(null).map(() => Array(15).fill(0));
-    this.turn = 1; // 1: 黑方, 2: 白方
-    this.winner = 0; // 0: 对局中, 1: 黑胜, 2: 白胜, 3: 平局
+    this.turn = 1;             // 1: 黑方, 2: 白方
+    this.winner = 0;           // 0: 对局中, 1: 黑胜, 2: 白胜, 3: 平局
     this.lastMove = null;
-    this.blackPlayer = null; // { id, name }
-    this.whitePlayer = null; // { id, name }
-    this.turnDeadline = 0;   // 倒计时截止时间戳
-    this.drawProposer = null; // 发起求和者的 role
+    this.blackPlayer = null;   // { id, name }
+    this.whitePlayer = null;   // { id, name }
+    this.turnDeadline = 0;     // 倒计时截止时间戳
+    this.drawProposer = null;  // 发起求和者 role
   }
 
   async fetch(request) {
@@ -23,7 +23,7 @@ export class ChessRoom {
     const playerId = crypto.randomUUID();
     this.sessions.set(server, { id: playerId, name: "神秘弈客", role: 0 });
 
-    // 同步初态
+    // 连接就绪，同步当前房间完整状态
     server.send(JSON.stringify({
       type: "init",
       playerId,
@@ -42,21 +42,28 @@ export class ChessRoom {
       const user = this.sessions.get(server);
       if (!user) return;
 
+      // --- 通用聊天与用户信息 ---
       if (data.type === "join") {
         user.name = data.name;
         this.broadcastState();
-        this.broadcastChat("系统", `${user.name} 进入了棋牌室。`);
+        this.broadcastChat("系统", `${user.name} 进入了当前频道。`);
 
       } else if (data.type === "rename") {
-        const old = user.name;
+        const oldName = user.name;
         user.name = data.name;
         if (this.blackPlayer?.id === user.id) this.blackPlayer.name = user.name;
         if (this.whitePlayer?.id === user.id) this.whitePlayer.name = user.name;
         this.broadcastState();
-        this.broadcastChat("系统", `[${old}] 更名为 [${user.name}]`);
+        this.broadcastChat("系统", `[${oldName}] 更名为 [${user.name}]`);
 
+      } else if (data.type === "chat") {
+        if (data.text?.trim()) {
+          this.broadcastChat(user.name, data.text.trim());
+        }
+
+      // --- 棋盘对战核心控制 ---
       } else if (data.type === "take_seat") {
-        const targetRole = data.role; // 1: 黑, 2: 白
+        const targetRole = data.role;
         if (targetRole === 1 && !this.blackPlayer) {
           this.vacateSeat(user);
           user.role = 1;
@@ -74,7 +81,7 @@ export class ChessRoom {
 
       } else if (data.type === "leave_seat") {
         if (user.role !== 0) {
-          this.broadcastChat("系统", `${user.name} 离开了对局席位。`);
+          this.broadcastChat("系统", `${user.name} 离席进入观战状态。`);
           this.vacateSeat(user);
           this.resetGame();
           this.broadcastState();
@@ -99,7 +106,7 @@ export class ChessRoom {
           this.winner = this.turn;
           this.turnDeadline = 0;
           this.broadcastState();
-          this.broadcastChat("系统", `对局结束！${this.winner === 1 ? "黑方" : "白方"} [${user.name}] 达成五连珠，获得胜利！`);
+          this.broadcastChat("系统", `对局结束！${this.winner === 1 ? "黑方" : "白方"} [${user.name}] 达成五子连珠，获得胜利！`);
         } else {
           this.turn = this.turn === 1 ? 2 : 1;
           this.turnDeadline = Date.now() + 30000;
@@ -111,13 +118,13 @@ export class ChessRoom {
         this.winner = user.role === 1 ? 2 : 1;
         this.turnDeadline = 0;
         this.broadcastState();
-        this.broadcastChat("系统", `${user.name} 选择了认输，${this.winner === 1 ? "黑方" : "白方"} 获胜！`);
+        this.broadcastChat("系统", `${user.name} 认输，${this.winner === 1 ? "黑方" : "白方"} 获胜！`);
 
       } else if (data.type === "propose_draw") {
         if (user.role === 0 || this.winner !== 0 || !this.isGameReady() || this.drawProposer) return;
         this.drawProposer = user.role;
         this.broadcast({ type: "draw_offer", fromName: user.name, fromRole: user.role });
-        this.broadcastChat("系统", `${user.name} 提出了求和请求，等待对方回应...`);
+        this.broadcastChat("系统", `${user.name} 提出了求和申请...`);
 
       } else if (data.type === "respond_draw") {
         if (!this.drawProposer || user.role === this.drawProposer || user.role === 0) return;
@@ -125,9 +132,9 @@ export class ChessRoom {
           this.winner = 3;
           this.turnDeadline = 0;
           this.broadcastState();
-          this.broadcastChat("系统", `双方同意求和，本局以平局结束！`);
+          this.broadcastChat("系统", `双方同意求和，本局以平局握手言和！`);
         } else {
-          this.broadcastChat("系统", `对手拒绝了求和请求，对局继续！`);
+          this.broadcastChat("系统", `对手拒绝了求和申请，对局继续！`);
         }
         this.drawProposer = null;
 
@@ -141,12 +148,7 @@ export class ChessRoom {
         this.resetGame();
         this.turnDeadline = Date.now() + 30000;
         this.broadcastState();
-        this.broadcastChat("系统", `${user.name} 重新初始化了棋局。`);
-
-      } else if (data.type === "chat") {
-        if (data.text?.trim()) {
-          this.broadcastChat(user.name, data.text.trim());
-        }
+        this.broadcastChat("系统", `${user.name} 重置并开始了新对局。`);
       }
     });
 
@@ -158,7 +160,7 @@ export class ChessRoom {
           this.vacateSeat(user);
           this.resetGame();
         }
-        this.broadcastChat("系统", `${user.name} 离开了房间。`);
+        this.broadcastChat("系统", `${user.name} 断开了连接。`);
         this.broadcastState();
       }
     });
@@ -180,7 +182,7 @@ export class ChessRoom {
     if (this.isGameReady()) {
       this.resetGame();
       this.turnDeadline = Date.now() + 30000;
-      this.broadcastChat("系统", `双方就绪，对局开始！黑方先手（30秒限时）`);
+      this.broadcastChat("系统", `双方就位，对局开始！黑方先手思考（限时 30 秒）`);
     } else {
       this.turnDeadline = 0;
     }
@@ -198,7 +200,7 @@ export class ChessRoom {
     this.winner = winRole;
     this.turnDeadline = 0;
     this.broadcastState();
-    this.broadcastChat("系统", `思考超时！${winRole === 1 ? "黑方" : "白方"} 超时获胜！`);
+    this.broadcastChat("系统", `超时判负！${winRole === 1 ? "黑方" : "白方"} 超时获胜！`);
   }
 
   checkWin(x, y, color) {
@@ -246,7 +248,7 @@ export class ChessRoom {
   }
 }
 
-// ==================== 2. Worker 路由入口 ====================
+// ==================== 2. 请求路由入口 ====================
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -259,11 +261,14 @@ export default {
     }
 
     if (request.headers.get("Upgrade") === "websocket") {
-      const id = env.CHESS_ROOM.idFromName("gomoku_public_room");
+      const url = new URL(request.url);
+      // 动态读取 URL 参数中的房间名称，默认为 lobby
+      const roomId = url.searchParams.get("room") || "lobby";
+      const id = env.CHESS_ROOM.idFromName(roomId);
       return env.CHESS_ROOM.get(id).fetch(request);
     }
 
-    return new Response("07Chess 联机网关已运行。请通过 WebSocket 连接或在前端访问。", {
+    return new Response("07Chess 网关运行中。请建立 WebSocket 协议连接。", {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=UTF-8" }
     });
