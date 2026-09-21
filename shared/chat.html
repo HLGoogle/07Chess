@@ -1,1 +1,119 @@
-11
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实时交流</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1c2128; color: #adbac7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header { padding: 8px 10px; background: #22272e; border-bottom: 1px solid #373e47; display: flex; flex-direction: column; gap: 6px; }
+  .meta-row { display: flex; justify-content: space-between; font-size: 12px; color: #768390; }
+  .name-row { display: flex; gap: 4px; }
+  input[type="text"] { background: #2d333b; border: 1px solid #444c56; color: #cdd9e5; padding: 4px 8px; border-radius: 4px; font-size: 12px; outline: none; }
+  button { background: #347d39; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  button:hover { opacity: 0.9; }
+  .btn-sub { background: #373e47; }
+
+  #msg-list { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .msg-row { line-height: 1.4; word-break: break-all; }
+  .msg-row.sys { color: #e3b341; font-style: italic; }
+  .msg-row .sender { color: #58a6ff; font-weight: bold; margin-right: 4px; }
+
+  footer { padding: 8px 10px; background: #22272e; border-top: 1px solid #373e47; display: flex; gap: 6px; }
+  footer input { flex: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="meta-row">
+    <span id="room-tag">频道: 读取中...</span>
+    <span id="online-tag">在线: 1</span>
+  </div>
+  <div class="name-row">
+    <input type="text" id="name-input" maxlength="8" style="flex:1;">
+    <button onclick="setName()">改名</button>
+    <button class="btn-sub" onclick="randomName()">随机</button>
+  </div>
+</header>
+
+<div id="msg-list"></div>
+
+<footer>
+  <input type="text" id="chat-input" placeholder="按 Enter 发送交流..." maxlength="100">
+  <button onclick="sendMsg()">发送</button>
+</footer>
+
+<script>
+  // 中文随机词库
+  const prefixes = ["悠然的", "淡定的", "睿智的", "从容的", "深思的", "纵横的", "隐修的", "策马的", "弈海的", "问道的"];
+  const suffixes = ["棋圣", "国手", "弈者", "隐士", "居士", "先锋", "书生", "游侠", "名宿", "布衣"];
+  function generateChineseName() {
+    return prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)];
+  }
+
+  const urlParams = new URLSearchParams(location.search);
+  const currentRoom = urlParams.get("room") || "lobby";
+  document.getElementById("room-tag").innerText = `频道: ${currentRoom}`;
+
+  let myName = localStorage.getItem("global_player_name") || generateChineseName();
+  const nameInput = document.getElementById("name-input");
+  nameInput.value = myName;
+
+  // 网络寻址逻辑：自适应当前服务地址
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const host = location.host.includes("workers.dev") ? location.host : "07chess-server.hl273573221.workers.dev";
+  const ws = new WebSocket(`${proto}//${host}?room=${currentRoom}`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "join", name: myName }));
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === "chat") {
+      renderChat(data.sender, data.text);
+    } else if (data.type === "init" || data.type === "sync") {
+      document.getElementById("online-tag").innerText = `在线: ${data.onlineCount}`;
+    }
+  };
+
+  function renderChat(sender, text) {
+    const list = document.getElementById("msg-list");
+    const item = document.createElement("div");
+    item.className = "msg-row" + (sender === "系统" ? " sys" : "");
+    item.innerHTML = sender === "系统" ? `[系统] ${text}` : `<span class="sender">${sender}:</span><span>${text}</span>`;
+    list.appendChild(item);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function sendMsg() {
+    const ipt = document.getElementById("chat-input");
+    const val = ipt.value.trim();
+    if (!val) return;
+    ws.send(JSON.stringify({ type: "chat", text: val }));
+    ipt.value = "";
+  }
+
+  document.getElementById("chat-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendMsg();
+  });
+
+  function setName() {
+    const val = nameInput.value.trim();
+    if (!val) return;
+    myName = val;
+    localStorage.setItem("global_player_name", myName);
+    ws.send(JSON.stringify({ type: "rename", name: myName }));
+  }
+
+  function randomName() {
+    nameInput.value = generateChineseName();
+    setName();
+  }
+</script>
+
+</body>
+</html>
