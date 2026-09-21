@@ -1,4 +1,4 @@
-name = "07chess"
+name = "07chess-server"
 main = "index.js"
 compatibility_date = "2024-02-25"
 
