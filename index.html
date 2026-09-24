@@ -6,26 +6,88 @@
 <title>对战平台容器</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #161b22; color: #c9d1d9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 30px 16px; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #161b22;
+    color: #c9d1d9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 16px;
+  }
   
-  .container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 24px; }
-  header { border-bottom: 1px solid #30363d; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .container {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  header {
+    border-bottom: 1px solid #30363d;
+    padding-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
   header h1 { font-size: 22px; color: #f0f6fc; }
   .hub-desc { font-size: 13px; color: #8b949e; }
 
-  .content-layout { display: flex; gap: 20px; flex-wrap: wrap; }
-  .grid-area { flex: 1; min-width: 320px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; align-content: start; }
+  /* 纯净卡片展示区，不再受聊天 iframe 干扰 */
+  .grid-area {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    width: 100%;
+  }
   
-  .entry-card { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s; min-height: 150px; }
-  .entry-card:hover { border-color: #58a6ff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-  .entry-card.disabled { opacity: 0.45; pointer-events: none; }
-  .entry-title { font-size: 16px; font-weight: bold; color: #f0f6fc; margin-bottom: 8px; }
-  .entry-desc { font-size: 13px; color: #8b949e; line-height: 1.4; margin-bottom: 16px; }
-  .entry-action { align-self: flex-start; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 4px; background: #238636; color: #fff; }
-  .entry-card.disabled .entry-action { background: #30363d; }
-
-  .chat-widget-area { width: 320px; height: 520px; background: #21262d; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
-  .chat-frame { width: 100%; height: 100%; border: none; }
+  .entry-card {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: 0.2s;
+    min-height: 160px;
+  }
+  .entry-card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .entry-card.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .entry-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #f0f6fc;
+    margin-bottom: 8px;
+  }
+  .entry-desc {
+    font-size: 13px;
+    color: #8b949e;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .entry-action {
+    align-self: flex-start;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 4px;
+    background: #238636;
+    color: #fff;
+  }
+  .entry-card.disabled .entry-action {
+    background: #30363d;
+  }
 </style>
 </head>
 <body>
@@ -38,13 +100,8 @@
     </div>
   </header>
 
-  <div class="content-layout">
-    <div class="grid-area" id="game-grid"></div>
-
-    <div class="chat-widget-area">
-      <iframe class="chat-frame" src="./shared/chat.html?room=lobby"></iframe>
-    </div>
-  </div>
+  <!-- 仅保留游戏网格，彻底拔除导致套娃的 iframe -->
+  <div class="grid-area" id="game-grid"></div>
 </div>
 
 <script>
@@ -57,11 +114,11 @@
       active: true
     },
     {
-     id: "02Bow",
+      id: "02Bow",
       name: "02 号组件 (神箭争锋)",
       desc: "风向影响与抛物线弹道物理计算模块，支持拉弓蓄力与定角射击对抗。",
       path: "./02Bow/bow.html",
-      active: true  // 改为 true 后卡片将激活，变成绿色的“启动对局”并可点击进入
+      active: true
     }
   ];
 
