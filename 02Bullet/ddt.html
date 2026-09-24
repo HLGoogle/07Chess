@@ -1,258 +1,99 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>网页版弹弹堂 (DDT Mini)</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #1a1a2e;
-      color: #fff;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 15px;
-    }
-    #gameContainer {
-      position: relative;
-      border: 3px solid #e94560;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    canvas { background: #0f3460; display: block; }
-    .panel {
-      width: 800px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 15px;
-      background: #16213e;
-      border: 1px solid #0f3460;
-      border-radius: 6px;
-      margin-top: 10px;
-    }
-    .hud { font-size: 15px; font-weight: bold; }
-    .controls-tip { font-size: 12px; color: #8ecae6; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对战平台容器</title>
+<script>
+  // 防嵌套检测：一旦发现自身被作为 iframe 嵌入聊天框，立即拦截，彻底解决无限套娃问题
+  if (window.top !== window.self) {
+    window.top.location = window.self.location;
+  }
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #161b22; color: #c9d1d9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 30px 16px; }
+  
+  .container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 24px; }
+  header { border-bottom: 1px solid #30363d; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 22px; color: #f0f6fc; }
+  .hub-desc { font-size: 13px; color: #8b949e; }
+
+  .content-layout { display: flex; gap: 20px; flex-wrap: wrap; }
+  .grid-area { flex: 1; min-width: 320px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; align-content: start; }
+  
+  .entry-card { background: #21262d; border: 1px solid #30363d; border-radius: 8px; padding: 20px; text-decoration: none; color: inherit; display: flex; flex-direction: column; justify-content: space-between; transition: 0.2s; min-height: 150px; }
+  .entry-card:hover { border-color: #58a6ff; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .entry-card.disabled { opacity: 0.45; pointer-events: none; }
+  .entry-title { font-size: 16px; font-weight: bold; color: #f0f6fc; margin-bottom: 8px; }
+  .entry-desc { font-size: 13px; color: #8b949e; line-height: 1.4; margin-bottom: 16px; }
+  .entry-action { align-self: flex-start; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 4px; background: #238636; color: #fff; }
+  .entry-card.disabled .entry-action { background: #30363d; }
+
+  .chat-widget-area { width: 320px; height: 520px; background: #21262d; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+  .chat-frame { width: 100%; height: 100%; border: none; }
+</style>
 </head>
 <body>
 
-  <h2>💥 弹弹堂 网页轻量版</h2>
-  
-  <div id="gameContainer">
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
+<div class="container">
+  <header>
+    <div>
+      <h1>应用集成大厅</h1>
+      <div class="hub-desc">模块化棋类与桌面游戏容器底座</div>
+    </div>
+  </header>
+
+  <div class="content-layout">
+    <div class="grid-area" id="game-grid"></div>
+
+    <div class="chat-widget-area">
+      <!-- 若暂未配置好 shared/chat.html 路由，可保持相对路径或置空 -->
+      <iframe class="chat-frame" src="./shared/chat.html?room=lobby"></iframe>
+    </div>
   </div>
+</div>
 
-  <div class="panel">
-    <div class="hud" id="turnInfo">当前回合: 玩家 1 (红)</div>
-    <div class="hud" id="windInfo">风向: 0 (无风)</div>
-    <div class="hud" id="angleInfo">角度: 45°</div>
-    <div class="hud" id="powerInfo">蓄力: 0%</div>
-  </div>
+<script>
+  var GAME_REGISTRY = [
+    {
+      id: "01Five",
+      name: "01 号组件 (五子对弈)",
+      desc: "标准 15×15 网格决策对抗模块，集成席位仲裁与时钟控制器。",
+      path: "./01Five/gomoku.html",
+      active: true
+    },
+    {
+      id: "02Bow",
+      name: "02 号组件 (神箭争锋)",
+      desc: "风向影响与抛物线弹道物理计算模块，支持拉弓蓄力与定角射击对抗。",
+      path: "./02Bow/bow.html",
+      active: true
+    }
+  ];
 
-  <div class="panel controls-tip">
-    操作指引：【A / D】移动 | 【W / S】调整发射角度 | 【长按 空格键】蓄力，松开开火
-  </div>
+  var grid = document.getElementById("game-grid");
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-
-    // UI 元素
-    const turnInfo = document.getElementById('turnInfo');
-    const windInfo = document.getElementById('windInfo');
-    const angleInfo = document.getElementById('angleInfo');
-    const powerInfo = document.getElementById('powerInfo');
-
-    // 地形高度贴图 (像素级数组)
-    const terrain = new Uint16Array(canvas.width);
-    function generateTerrain() {
-      let h = 350;
-      for (let x = 0; x < canvas.width; x++) {
-        h += (Math.sin(x * 0.01) * 1.5) + (Math.sin(x * 0.03) * 0.8);
-        terrain[x] = Math.min(Math.max(h, 200), 450);
-      }
+  for (var i = 0; i < GAME_REGISTRY.length; i++) {
+    var item = GAME_REGISTRY[i];
+    var card = document.createElement("a");
+    card.className = "entry-card" + (item.active ? "" : " disabled");
+    if (item.active) {
+      card.href = item.path;
     }
 
-    // 玩家配置
-    const players = [
-      { id: 1, name: '玩家 1', color: '#e63946', x: 100, y: 0, hp: 100, angle: 45, dir: 1 },
-      { id: 2, name: '玩家 2', color: '#457b9d', x: 700, y: 0, hp: 100, angle: 45, dir: -1 }
-    ];
+    var actionText = item.active ? "启动对局" : "准备中";
 
-    let turn = 0; // 0 为玩家1，1 为玩家2
-    let wind = 0; // 风力 (-5 到 5)
-    let isCharging = false;
-    let chargePower = 0;
-    let bullet = null;
+    card.innerHTML = 
+      '<div>' +
+        '<div class="entry-title">' + item.name + '</div>' +
+        '<div class="entry-desc">' + item.desc + '</div>' +
+      '</div>' +
+      '<div class="entry-action">' + actionText + '</div>';
 
-    function resetWind() {
-      wind = (Math.random() * 6 - 3).toFixed(1);
-      windInfo.innerText = `风力: ${Math.abs(wind)} (${wind >= 0 ? '顺风 ➔' : '逆风 ⬅'})`;
-    }
+    grid.appendChild(card);
+  }
+</script>
 
-    // 初始化位置与地形
-    generateTerrain();
-    resetWind();
-
-    function updatePlayerY() {
-      players.forEach(p => {
-        let groundY = terrain[Math.floor(p.x)] || 350;
-        p.y = groundY - 12;
-      });
-    }
-
-    // 弹坑爆炸（地形破坏）
-    function explode(cx, cy, radius) {
-      for (let x = Math.max(0, Math.floor(cx - radius)); x < Math.min(canvas.width, Math.ceil(cx + radius)); x++) {
-        let dx = x - cx;
-        let dy = Math.sqrt(radius * radius - dx * dx);
-        let craterBottom = cy + dy;
-        if (terrain[x] < craterBottom) {
-          terrain[x] = Math.min(canvas.height, Math.max(terrain[x], craterBottom));
-        }
-      }
-
-      // 计算伤害
-      players.forEach(p => {
-        let dist = Math.hypot(p.x - cx, p.y - cy);
-        if (dist < radius + 15) {
-          let damage = Math.floor((1 - dist / (radius + 15)) * 60);
-          p.hp = Math.max(0, p.hp - damage);
-        }
-      });
-    }
-
-    // 键盘监听
-    const keys = {};
-    window.addEventListener('keydown', e => {
-      keys[e.code] = true;
-      if (e.code === 'Space' && !bullet && !isCharging) {
-        isCharging = true;
-        chargePower = 0;
-      }
-    });
-
-    window.addEventListener('keyup', e => {
-      keys[e.code] = false;
-      if (e.code === 'Space' && isCharging) {
-        fireBullet();
-        isCharging = false;
-      }
-    });
-
-    function fireBullet() {
-      const cur = players[turn];
-      const rad = (cur.angle * Math.PI) / 180;
-      const speed = (chargePower / 100) * 22;
-
-      bullet = {
-        x: cur.x,
-        y: cur.y - 10,
-        vx: Math.cos(rad) * speed * cur.dir,
-        vy: -Math.sin(rad) * speed,
-        radius: 4
-      };
-      chargePower = 0;
-    }
-
-    function switchTurn() {
-      turn = 1 - turn;
-      resetWind();
-      turnInfo.innerText = `当前回合: ${players[turn].name}`;
-      turnInfo.style.color = players[turn].color;
-    }
-
-    function gameLoop() {
-      const cur = players[turn];
-
-      // 处理移动与瞄准角度
-      if (!bullet) {
-        if (keys['KeyA'] && cur.x > 30) { cur.x -= 2; cur.dir = -1; }
-        if (keys['KeyD'] && cur.x < canvas.width - 30) { cur.x += 2; cur.dir = 1; }
-        if (keys['KeyW'] && cur.angle < 89) cur.angle++;
-        if (keys['KeyS'] && cur.angle > 1) cur.angle--;
-
-        angleInfo.innerText = `角度: ${cur.angle}°`;
-
-        if (isCharging) {
-          chargePower = Math.min(100, chargePower + 1.2);
-          powerInfo.innerText = `蓄力: ${Math.floor(chargePower)}%`;
-        }
-      }
-
-      // 更新炮弹物理轨迹
-      if (bullet) {
-        bullet.vx += wind * 0.015; // 风力加速度
-        bullet.vy += 0.35;        // 重力加速度
-        bullet.x += bullet.vx;
-        bullet.y += bullet.vy;
-
-        let bx = Math.floor(bullet.x);
-        let by = Math.floor(bullet.y);
-
-        // 碰触地形、越界或命中
-        if (bx < 0 || bx >= canvas.width || by >= canvas.height || (by >= terrain[bx])) {
-          explode(bullet.x, bullet.y, 25);
-          bullet = null;
-          powerInfo.innerText = '蓄力: 0%';
-          switchTurn();
-        }
-      }
-
-      updatePlayerY();
-
-      // 渲染画布
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 绘制破坏后的地形
-      ctx.fillStyle = '#2b9348';
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height);
-      for (let x = 0; x < canvas.width; x++) {
-        ctx.lineTo(x, terrain[x]);
-      }
-      ctx.lineTo(canvas.width, canvas.height);
-      ctx.closePath();
-      ctx.fill();
-
-      // 绘制角色
-      players.forEach(p => {
-        // 血条
-        ctx.fillStyle = '#333';
-        ctx.fillRect(p.x - 20, p.y - 30, 40, 6);
-        ctx.fillStyle = '#06d6a0';
-        ctx.fillRect(p.x - 20, p.y - 30, (p.hp / 100) * 40, 6);
-
-        // 身体
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 炮管
-        const rad = (p.angle * Math.PI) / 180;
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y - 5);
-        ctx.lineTo(p.x + Math.cos(rad) * 20 * p.dir, (p.y - 5) - Math.sin(rad) * 20);
-        ctx.stroke();
-      });
-
-      // 绘制炮弹
-      if (bullet) {
-        ctx.fillStyle = '#ffd166';
-        ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      requestAnimationFrame(gameLoop);
-    }
-
-    requestAnimationFrame(gameLoop);
-  </script>
 </body>
 </html>
